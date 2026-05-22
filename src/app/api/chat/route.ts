@@ -9,18 +9,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "الطلب فارغ" }, { status: 400 });
     }
 
-    // 1. سحب تاريخ المحادثة الكامل (Chat History) من الـ Supabase
+    // 1. سحب تاريخ المحادثة الكامل (Chat History) لتأمين الربط التراكمي 100%
     let formattedHistory: any[] = [];
     
     if (conversationId) {
       const supabaseMessagesBypass: any = supabase.from("messages");
       const { data: pastMessages } = await supabaseMessagesBypass
-        .select("role", "text")
+        .select("role, text")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true }); // ترتيب تصاعدي من الأقدم للأحدث لربط السياق
 
       if (pastMessages && pastMessages.length > 0) {
-        // فلترة وتأمين الهيكل ليكون متوافق 100% مع الـ API الرسمي لـ Gemini
         formattedHistory = pastMessages.map((msg: any) => ({
           role: msg.role === "user" ? "user" : "model",
           parts: [{ text: msg.text || "" }]
@@ -55,7 +54,17 @@ export async function POST(req: Request) {
     let successfulKeyIndex = startIndex;
     let lastError = "لم يتم العثور على مفتاح صالح في مصفوفة النظام";
 
-    // 3. الـ Loop الذكي لتجربة الـ 5 مفاتيح ومقاومة السقوط التبادلي
+    // 🌟 3. حقن تعليمات السيرفر العليا (Prompt Engineer System Instructions)
+    // ده اللي بيخلي البوت يسأل أسئلة ذكية وقليلة ويفهم عقلية المستخدم وخلفيته في المجال
+    const systemInstruction = 
+      "You are Grace OS VIP Elite Prompt Engineer. Your specialized core function is to craft perfect, advanced prompts for users. " +
+      "CRITICAL BEHAVIOR: When a user asks for a prompt or an AI instruction, DO NOT just give it to them immediately. " +
+      "Instead, you must analyze their request and reply by asking a maximum of 2 or 3 highly intelligent, short, and precise questions. " +
+      "Your questions must aim to uncover: 1. Their exact goal, 2. Their level of experience in this specific field (beginner or expert), 3. Any hidden constraints. " +
+      "Keep your tone extremely professional, sharp, luxurious, and supportive. " +
+      "Always connect the current message with the full past chat history provided to ensure context consistency. Reply in Arabic.";
+
+    // 4. الـ Loop الذكي لتجربة المفاتيح ومخاطبة جوجل مباشرة بـ Gemini 2.5
     while (fallbackCounter < 5) {
       const currentIndex = (startIndex + fallbackCounter) % 5;
       const currentKey = keysArray[currentIndex];
@@ -66,14 +75,13 @@ export async function POST(req: Request) {
       }
 
       try {
-        // 🌟 التعديل الحتمي والمظبوط: ربط المحرك بـ gemini-2.5-flash عبر v1alpha القياسي
         const geminiUrl = `https://generativelanguage.googleapis.com/v1alpha/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
         
-        // بناء مصفوفة الأدوار (Contents Payload)
+        // ربط الـ History القديم بالدور الحالي لضمان الربط الكامل والشات يكمل بعضه
         const contents = [...formattedHistory];
         const currentTurnParts: any[] = [];
 
-        // ترتيب الأجزاء: الصورة أولاً then النص (ترتيب إلزامي لـ Gemini API للـ Multi-modal)
+        // معالجة الصور إن وجدت (ترتيب إلزامي للموديل)
         if (image && image.startsWith("data:image")) {
           const mimeType = image.split(";")[0].split(":")[1];
           const base64Data = image.split(",")[1];
@@ -83,19 +91,25 @@ export async function POST(req: Request) {
           });
         }
 
-        // إضافة نص الرسالة الحالية للمستخدم
+        // إضافة الرسالة الحالية للمستخدم
         currentTurnParts.push({ text: message || "حلل هذا المرفق الفاخر" });
 
-        // دفع الدور الحالي للمستخدم في ذيل المصفوفة
+        // دفع دور المستخدم الحالي في ذيل مصفوفة السياق المتكامل
         contents.push({
           role: "user",
           parts: currentTurnParts
         });
 
+        // إرسال الطلب مع الـ System Instruction وحقن الـ History الكامل
         const geminiResponse = await fetch(geminiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents })
+          body: JSON.stringify({ 
+            contents,
+            systemInstruction: {
+              parts: [{ text: systemInstruction }]
+            }
+          })
         });
 
         const geminiData = await geminiResponse.json();
@@ -103,7 +117,7 @@ export async function POST(req: Request) {
         if (geminiData.candidates && geminiData.candidates[0]?.content?.parts[0]?.text) {
           replyText = geminiData.candidates[0].content.parts[0].text;
           successfulKeyIndex = currentIndex;
-          break; // نجح الاستدعاء الحتمي! اخرج فوراً من الـ Loop
+          break; // نجح الاستدعاء وتأمن السياق! اخرج فوراً
         } else {
           lastError = geminiData.error?.message || JSON.stringify(geminiData);
         }
@@ -118,7 +132,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `❌ خطأ في نفاذ المحرك: ${lastError}` }, { status: 503 });
     }
 
-    // 4. حفظ رسالة المستخدم ورد البوت الحاليين داخل قاعدة البيانات لمزامنة الـ History
+    // 5. حفظ رسالة المستخدم ورد البوت الحاليين داخل قاعدة البيانات لمزامنة الـ History للرسايل الجاية
     if (conversationId) {
       const supabaseMsgBypass: any = supabase.from("messages");
       await supabaseMsgBypass.insert([
@@ -127,7 +141,7 @@ export async function POST(req: Request) {
       ]);
     }
 
-    // 5. تدوير وتحديث الـ active_key_index في جدول الـ system_settings لو اتغير المفتاح
+    // 6. تدوير وتحديث الـ active_key_index في جدول الـ system_settings لو اتغير المفتاح
     const nextActiveIndexForDb = successfulKeyIndex + 1;
     if (nextActiveIndexForDb !== settings.active_key_index) {
       const supabaseUpdateBypass: any = supabase.from("system_settings");
