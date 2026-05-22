@@ -10,7 +10,6 @@ export async function POST(req: Request) {
     }
 
     // 1. سحب تاريخ المحادثة الكامل (Chat History) من الـ Supabase
-    let historyJson = "[]";
     let formattedHistory: any[] = [];
     
     if (conversationId) {
@@ -21,7 +20,7 @@ export async function POST(req: Request) {
         .order("created_at", { ascending: true });
 
       if (pastMessages && pastMessages.length > 0) {
-        // تحويل التاريخ للهيكل اللي بيفهمه الـ API الرسمي لـ Gemini مباشرة
+        // فلترة وتأمين الهيكل ليكون متوافق 100% مع الـ API الرسمي لـ Gemini
         formattedHistory = pastMessages.map((msg: any) => ({
           role: msg.role === "user" ? "user" : "model",
           parts: [{ text: msg.text || "" }]
@@ -54,9 +53,9 @@ export async function POST(req: Request) {
     let fallbackCounter = 0;
     let replyText = "";
     let successfulKeyIndex = startIndex;
-    let lastError = "لم يتم العثور على مفتاح صالح في المصفوفة";
+    let lastError = "لم يتم العثور على مفتاح صالح في مصفوفة النظام";
 
-    // 3. الـ Loop على المفاتيح وتمرير الـ History مباشرة من الـ Node.js
+    // 3. الـ Loop الذكي لتجربة الـ 5 مفاتيح ومقاومة السقوط التبادلي
     while (fallbackCounter < 5) {
       const currentIndex = (startIndex + fallbackCounter) % 5;
       const currentKey = keysArray[currentIndex];
@@ -67,15 +66,14 @@ export async function POST(req: Request) {
       }
 
       try {
-        // رابط الـ API الرسمي لـ Gemini (باستخدام موديل gemini-1.5-flash السريع والاقتصادي والممتاز للصور)
+        // الرابط النظيف والمباشر المتوافق تماماً مع الـ Node.js
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`;
         
-        // بناء محتوى الطلب (Contents Payload) متضمناً التاريخ الحالي
+        // بناء مصفوفة الأدوار (Contents Payload)
         const contents = [...formattedHistory];
-        
         const currentTurnParts: any[] = [];
 
-        // إذا كان المستخدم رافع صورة Base64، بنباصيها عل طول للسيرفر بدون حفظ ملف مؤقت
+        // ترتيب الأجزاء: الصورة أولاً ثم النص (ترتيب إلزامي لـ Gemini API للـ Multi-modal)
         if (image && image.startsWith("data:image")) {
           const mimeType = image.split(";")[0].split(":")[1];
           const base64Data = image.split(",")[1];
@@ -85,10 +83,10 @@ export async function POST(req: Request) {
           });
         }
 
-        // إضافة نص الرسالة الحالية
-        currentTurnParts.push({ text: message || "حلل المرفق المرفق الفاخر" });
+        // إضافة نص الرسالة الحالية للمستخدم
+        currentTurnParts.push({ text: message || "حلل هذا المرفق الفاخر" });
 
-        // دفع الدور الحالي للمستخدم داخل مصفوفة الـ contents
+        // دفع الدور الحالي للمستخدم في ذيل المصفوفة
         contents.push({
           role: "user",
           parts: currentTurnParts
@@ -105,7 +103,7 @@ export async function POST(req: Request) {
         if (geminiData.candidates && geminiData.candidates[0]?.content?.parts[0]?.text) {
           replyText = geminiData.candidates[0].content.parts[0].text;
           successfulKeyIndex = currentIndex;
-          break; // نجح الاستدعاء! اخرج فوراً من الـ Loop
+          break; // نجح الاستدعاء الحتمي! اخرج فوراً من الـ Loop
         } else {
           lastError = geminiData.error?.message || JSON.stringify(geminiData);
         }
@@ -120,7 +118,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `❌ خطأ في نفاذ المحرك: ${lastError}` }, { status: 503 });
     }
 
-    // 4. تحديث الـ active_key_index في قاعدة البيانات لو اتغير
+    // 4. حفظ رسالة المستخدم ورد البوت الحاليين داخل قاعدة البيانات لمزامنة الـ History
+    if (conversationId) {
+      const supabaseMsgBypass: any = supabase.from("messages");
+      await supabaseMsgBypass.insert([
+        { conversation_id: conversationId, role: "user", text: message || "ارسل صورة" },
+        { conversation_id: conversationId, role: "model", text: replyText }
+      ]);
+    }
+
+    // 5. تدوير وتحديث الـ active_key_index في جدول الـ system_settings لو اتغير المفتاح
     const nextActiveIndexForDb = successfulKeyIndex + 1;
     if (nextActiveIndexForDb !== settings.active_key_index) {
       const supabaseUpdateBypass: any = supabase.from("system_settings");
