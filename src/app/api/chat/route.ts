@@ -14,7 +14,6 @@ const runPythonScript = (apiKey: string, message: string, historyJson: string, i
     const safeMessage = message.replace(/"/g, '\\"').replace(/\n/g, ' ');
     const safeHistory = historyJson.replace(/"/g, '\\"').replace(/\n/g, ' ');
     
-    // 🌟 التعديل الحتمي: تشغيل باستخدام python3 ليتوافق مع سيرفرات Vercel Linux لايف
     exec(`python3 "${scriptPath}" "${apiKey}" "${safeMessage}" "${safeHistory}" ${safeImageArg}`, { encoding: "utf-8" }, (error, stdout, stderr) => {
       if (error) {
         reject(stderr || error.message);
@@ -49,33 +48,31 @@ export async function POST(req: Request) {
       fs.writeFileSync(tempImagePath, buffer);
     }
 
-    // 🌟 سحب تاريخ المحادثة الكامل (Chat History) من الـ Supabase بناءً على الـ conversationId
+    // سحب تاريخ المحادثة الكامل (Chat History) من الـ Supabase
     let historyJson = "[]";
     if (conversationId) {
-      const { data: pastMessages } = await (supabase
-        .from("messages")
+      const supabaseMessagesBypass: any = supabase.from("messages");
+      const { data: pastMessages } = await supabaseMessagesBypass
         .select("role, text")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true }) as any); // التعديل لحماية الـ Schema
+        .order("created_at", { ascending: true });
 
       if (pastMessages && pastMessages.length > 0) {
-        // تحويل الرسايل لـ JSON بسيط ليفهمه البايثون
         historyJson = JSON.stringify(pastMessages);
       }
     }
 
-    // 1. جلب مصفوفة المفاتيح من جدول system_settings
-    const { data: dbSettings, error: dbError } = await (supabase
-      .from("system_settings")
+    // جلب مصفوفة المفاتيح من جدول system_settings
+    const supabaseSettingsBypass: any = supabase.from("system_settings");
+    const { data: dbSettings, error: dbError } = await supabaseSettingsBypass
       .select("*")
       .eq("id", 1)
-      .single() as any);
+      .single();
 
     if (dbError || !dbSettings) {
       return NextResponse.json({ error: "فشل جلب إعدادات النظام" }, { status: 500 });
     }
 
-    // 🌟 التعديل السحري: تحويل النوع إلى any لتخطي خطأ الـ Property does not exist on type never
     const settings = dbSettings as any;
 
     const keysArray = [
@@ -92,7 +89,7 @@ export async function POST(req: Request) {
     let successfulKeyIndex = startIndex;
     let lastError = "";
 
-    // 2. الـ Loop على المفاتيح وتمرير الـ History
+    // الـ Loop على المفاتيح وتمرير الـ History
     while (fallbackCounter < 5) {
       const currentIndex = (startIndex + fallbackCounter) % 5;
       const currentKey = keysArray[currentIndex];
@@ -103,7 +100,6 @@ export async function POST(req: Request) {
       }
 
       try {
-        // باصينا الـ historyJson هنا بنجاح
         const pythonResult = await runPythonScript(currentKey, message || "", historyJson, tempImagePath);
         
         if (pythonResult && !pythonResult.startsWith("Error:")) {
@@ -130,10 +126,10 @@ export async function POST(req: Request) {
 
     const nextActiveIndexForDb = successfulKeyIndex + 1;
     if (nextActiveIndexForDb !== settings.active_key_index) {
-      // 🌟 التعديل السحري الحاسم القاتل للـ Type error: عملنا الـ casting غصب عن الـ Compiler
-      await (supabase
-        .from("system_settings")
-        .update({ active_key_index: nextActiveIndexForDb } as any) as any)
+      // 🌟 تدمير خطأ الـ TypeScript نهائياً بواسطة الـ Variable Bypass
+      const supabaseUpdateBypass: any = supabase.from("system_settings");
+      await supabaseUpdateBypass
+        .update({ active_key_index: nextActiveIndexForDb })
         .eq("id", 1);
     }
 
