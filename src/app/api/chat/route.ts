@@ -1,32 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { exec } from "child_process";
-import path from "path";
-import fs from "fs";
-
-// دالة تشغيل البايثون وتمرير الرسالة، المرفق، والتاريخ الكامل (Chat History)
-const runPythonScript = (apiKey: string, message: string, historyJson: string, imagePath: string | null): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const scriptPath = path.join(process.cwd(), "gemini_bridge.py");
-    const safeImageArg = imagePath ? `"${imagePath}"` : "null";
-    
-    // تنظيف النصوص من أي علامات قد تكسر أمر الـ Terminal
-    const safeMessage = message.replace(/"/g, '\\"').replace(/\n/g, ' ');
-    const safeHistory = historyJson.replace(/"/g, '\\"').replace(/\n/g, ' ');
-    
-    exec(`python3 "${scriptPath}" "${apiKey}" "${safeMessage}" "${safeHistory}" ${safeImageArg}`, { encoding: "utf-8" }, (error, stdout, stderr) => {
-      if (error) {
-        reject(stderr || error.message);
-      } else {
-        resolve(stdout.trim());
-      }
-    });
-  });
-};
 
 export async function POST(req: Request) {
-  let tempImagePath: string | null = null;
-  
   try {
     const { message, conversationId, image } = await req.json();
 
@@ -34,35 +9,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "الطلب فارغ" }, { status: 400 });
     }
 
-    // معالجة المرفقات مؤقتاً
-    if (image && image.startsWith("data:image")) {
-      const base64Data = image.split(",")[1];
-      const buffer = Buffer.from(base64Data, "base64");
-      const tempFolder = path.join(process.cwd(), "public", "temp");
-      
-      if (!fs.existsSync(tempFolder)) {
-        fs.mkdirSync(tempFolder, { recursive: true });
-      }
-      
-      tempImagePath = path.join(tempFolder, `chat_upload_${Date.now()}.jpg`);
-      fs.writeFileSync(tempImagePath, buffer);
-    }
-
-    // سحب تاريخ المحادثة الكامل (Chat History) من الـ Supabase
+    // 1. سحب تاريخ المحادثة الكامل (Chat History) من الـ Supabase
     let historyJson = "[]";
+    let formattedHistory: any[] = [];
+    
     if (conversationId) {
       const supabaseMessagesBypass: any = supabase.from("messages");
       const { data: pastMessages } = await supabaseMessagesBypass
-        .select("role, text")
+        .select("role", "text")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
 
       if (pastMessages && pastMessages.length > 0) {
-        historyJson = JSON.stringify(pastMessages);
+        // تحويل التاريخ للهيكل اللي بيفهمه الـ API الرسمي لـ Gemini مباشرة
+        formattedHistory = pastMessages.map((msg: any) => ({
+          role: msg.role === "user" ? "user" : "model",
+          parts: [{ text: msg.text || "" }]
+        }));
       }
     }
 
-    // جلب مصفوفة المفاتيح من جدول system_settings
+    // 2. جلب مصفوفة المفاتيح من جدول system_settings
     const supabaseSettingsBypass: any = supabase.from("system_settings");
     const { data: dbSettings, error: dbError } = await supabaseSettingsBypass
       .select("*")
@@ -87,9 +54,9 @@ export async function POST(req: Request) {
     let fallbackCounter = 0;
     let replyText = "";
     let successfulKeyIndex = startIndex;
-    let lastError = "";
+    let lastError = "لم يتم العثور على مفتاح صالح في المصفوفة";
 
-    // الـ Loop على المفاتيح وتمرير الـ History
+    // 3. الـ Loop على المفاتيح وتمرير الـ History مباشرة من الـ Node.js
     while (fallbackCounter < 5) {
       const currentIndex = (startIndex + fallbackCounter) % 5;
       const currentKey = keysArray[currentIndex];
@@ -100,33 +67,62 @@ export async function POST(req: Request) {
       }
 
       try {
-        const pythonResult = await runPythonScript(currentKey, message || "", historyJson, tempImagePath);
+        // رابط الـ API الرسمي لـ Gemini (باستخدام موديل gemini-1.5-flash السريع والاقتصادي والممتاز للصور)
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`;
         
-        if (pythonResult && !pythonResult.startsWith("Error:")) {
-          replyText = pythonResult;
+        // بناء محتوى الطلب (Contents Payload) متضمناً التاريخ الحالي
+        const contents = [...formattedHistory];
+        
+        const currentTurnParts: any[] = [];
+
+        // إذا كان المستخدم رافع صورة Base64، بنباصيها عل طول للسيرفر بدون حفظ ملف مؤقت
+        if (image && image.startsWith("data:image")) {
+          const mimeType = image.split(";")[0].split(":")[1];
+          const base64Data = image.split(",")[1];
+          
+          currentTurnParts.push({
+            inlineData: { mimeType, data: base64Data }
+          });
+        }
+
+        // إضافة نص الرسالة الحالية
+        currentTurnParts.push({ text: message || "حلل المرفق المرفق الفاخر" });
+
+        // دفع الدور الحالي للمستخدم داخل مصفوفة الـ contents
+        contents.push({
+          role: "user",
+          parts: currentTurnParts
+        });
+
+        const geminiResponse = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents })
+        });
+
+        const geminiData = await geminiResponse.json();
+
+        if (geminiData.candidates && geminiData.candidates[0]?.content?.parts[0]?.text) {
+          replyText = geminiData.candidates[0].content.parts[0].text;
           successfulKeyIndex = currentIndex;
-          break; 
+          break; // نجح الاستدعاء! اخرج فوراً من الـ Loop
         } else {
-          lastError = pythonResult;
+          lastError = geminiData.error?.message || JSON.stringify(geminiData);
         }
       } catch (err: any) {
-        lastError = err;
+        lastError = err.message || err;
       }
 
       fallbackCounter++;
     }
 
-    if (tempImagePath && fs.existsSync(tempImagePath)) {
-      try { fs.unlinkSync(tempImagePath); } catch {}
-    }
-
     if (!replyText) {
-      return NextResponse.json({ error: `❌ خطأ الجسر: ${lastError}` }, { status: 503 });
+      return NextResponse.json({ error: `❌ خطأ في نفاذ المحرك: ${lastError}` }, { status: 503 });
     }
 
+    // 4. تحديث الـ active_key_index في قاعدة البيانات لو اتغير
     const nextActiveIndexForDb = successfulKeyIndex + 1;
     if (nextActiveIndexForDb !== settings.active_key_index) {
-      // 🌟 تدمير خطأ الـ TypeScript نهائياً بواسطة الـ Variable Bypass
       const supabaseUpdateBypass: any = supabase.from("system_settings");
       await supabaseUpdateBypass
         .update({ active_key_index: nextActiveIndexForDb })
@@ -136,10 +132,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ reply: replyText });
 
   } catch (error: any) {
-    if (tempImagePath && fs.existsSync(tempImagePath)) {
-      try { fs.unlinkSync(tempImagePath); } catch {}
-    }
     console.error("Internal Server Error:", error);
-    return NextResponse.json({ error: "حدث خطأ داخلي" }, { status: 500 });
+    return NextResponse.json({ error: "حدث خطأ داخلي في السيستم" }, { status: 500 });
   }
 }
