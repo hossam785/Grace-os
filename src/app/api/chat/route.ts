@@ -66,14 +66,14 @@ export async function POST(req: Request) {
       }
 
       try {
-        // الرابط النظيف والمباشر المتوافق تماماً مع الـ Node.js
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`;
+        // 🌟 التعديل الحتمي والمظبوط: ربط المحرك بـ gemini-2.5-flash عبر v1alpha القياسي
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1alpha/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
         
         // بناء مصفوفة الأدوار (Contents Payload)
         const contents = [...formattedHistory];
         const currentTurnParts: any[] = [];
 
-        // ترتيب الأجزاء: الصورة أولاً ثم النص (ترتيب إلزامي لـ Gemini API للـ Multi-modal)
+        // ترتيب الأجزاء: الصورة أولاً then النص (ترتيب إلزامي لـ Gemini API للـ Multi-modal)
         if (image && image.startsWith("data:image")) {
           const mimeType = image.split(";")[0].split(":")[1];
           const base64Data = image.split(",")[1];
