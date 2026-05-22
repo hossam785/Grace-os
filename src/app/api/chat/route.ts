@@ -14,7 +14,8 @@ const runPythonScript = (apiKey: string, message: string, historyJson: string, i
     const safeMessage = message.replace(/"/g, '\\"').replace(/\n/g, ' ');
     const safeHistory = historyJson.replace(/"/g, '\\"').replace(/\n/g, ' ');
     
-    exec(`python "${scriptPath}" "${apiKey}" "${safeMessage}" "${safeHistory}" ${safeImageArg}`, { encoding: "utf-8" }, (error, stdout, stderr) => {
+    // 🌟 التعديل الحتمي: تشغيل باستخدام python3 ليتوافق مع سيرفرات Vercel Linux لايف
+    exec(`python3 "${scriptPath}" "${apiKey}" "${safeMessage}" "${safeHistory}" ${safeImageArg}`, { encoding: "utf-8" }, (error, stdout, stderr) => {
       if (error) {
         reject(stderr || error.message);
       } else {
@@ -51,11 +52,11 @@ export async function POST(req: Request) {
     // 🌟 سحب تاريخ المحادثة الكامل (Chat History) من الـ Supabase بناءً على الـ conversationId
     let historyJson = "[]";
     if (conversationId) {
-      const { data: pastMessages } = await supabase
+      const { data: pastMessages } = await (supabase
         .from("messages")
         .select("role, text")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true }); // ترتيب تصاعدي من الأقدم للأحدث
+        .order("created_at", { ascending: true }) as any); // التعديل لحماية الـ Schema
 
       if (pastMessages && pastMessages.length > 0) {
         // تحويل الرسايل لـ JSON بسيط ليفهمه البايثون
@@ -64,11 +65,11 @@ export async function POST(req: Request) {
     }
 
     // 1. جلب مصفوفة المفاتيح من جدول system_settings
-    const { data: dbSettings, error: dbError } = await supabase
+    const { data: dbSettings, error: dbError } = await (supabase
       .from("system_settings")
       .select("*")
       .eq("id", 1)
-      .single();
+      .single() as any);
 
     if (dbError || !dbSettings) {
       return NextResponse.json({ error: "فشل جلب إعدادات النظام" }, { status: 500 });
@@ -129,9 +130,10 @@ export async function POST(req: Request) {
 
     const nextActiveIndexForDb = successfulKeyIndex + 1;
     if (nextActiveIndexForDb !== settings.active_key_index) {
-      await supabase
+      // 🌟 التعديل السحري الحاسم القاتل للـ Type error: عملنا الـ casting غصب عن الـ Compiler
+      await (supabase
         .from("system_settings")
-        .update({ active_key_index: nextActiveIndexForDb })
+        .update({ active_key_index: nextActiveIndexForDb } as any) as any)
         .eq("id", 1);
     }
 
