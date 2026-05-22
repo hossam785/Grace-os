@@ -1,7 +1,5 @@
 {
-  "builds": [
-    { "src": "package.json", "use": "@vercel/next" },
-    { "src": "src/app/api/chat/route.ts", "use": "@vercel/node" },
-    { "src": "gemini_bridge.py", "use": "@vercel/python" }
-  ]
-}
+  "crons": [],
+  "framework": "nextjs",
+  "regions": ["iad1"]
+}. احط دي .؟
