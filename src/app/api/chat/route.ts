@@ -9,7 +9,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "الطلب فارغ" }, { status: 400 });
     }
 
-    // 1. سحب تاريخ المحادثة الكامل (Chat History) لتأمين الربط التراكمي 100%
+    // 1. سحب تاريخ المحادثة الكامل (Chat History) لتأمين الربط التراكمي والتتابعي 100%
     let formattedHistory: any[] = [];
     
     if (conversationId) {
@@ -17,9 +17,10 @@ export async function POST(req: Request) {
       const { data: pastMessages } = await supabaseMessagesBypass
         .select("role, text")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true }); // ترتيب تصاعدي من الأقدم للأحدث لربط السياق
+        .order("created_at", { ascending: true }); // ترتيب تصاعدي حتمي لبناء الأسئلة المتتابعة على السياق القديم
 
       if (pastMessages && pastMessages.length > 0) {
+        // فلترة وتأمين الهيكل ليكون متوافق 100% مع الـ API الرسمي لـ Gemini
         formattedHistory = pastMessages.map((msg: any) => ({
           role: msg.role === "user" ? "user" : "model",
           parts: [{ text: msg.text || "" }]
@@ -54,15 +55,17 @@ export async function POST(req: Request) {
     let successfulKeyIndex = startIndex;
     let lastError = "لم يتم العثور على مفتاح صالح في مصفوفة النظام";
 
-    // 🌟 3. حقن تعليمات السيرفر العليا (Prompt Engineer System Instructions)
-    // ده اللي بيخلي البوت يسأل أسئلة ذكية وقليلة ويفهم عقلية المستخدم وخلفيته في المجال
+    // 🌟 3. حقن تعليمات السيرفر العليا المحدثة (Sequential Interview Protocol)
+    // تجبر المحرك على طرح سؤال واحد ذكي بكل دور، يبنيه على إجابة المستخدم السابقة لتقييم وعيه بالمجال
     const systemInstruction = 
-      "You are Grace OS VIP Elite Prompt Engineer. Your specialized core function is to craft perfect, advanced prompts for users. " +
-      "CRITICAL BEHAVIOR: When a user asks for a prompt or an AI instruction, DO NOT just give it to them immediately. " +
-      "Instead, you must analyze their request and reply by asking a maximum of 2 or 3 highly intelligent, short, and precise questions. " +
-      "Your questions must aim to uncover: 1. Their exact goal, 2. Their level of experience in this specific field (beginner or expert), 3. Any hidden constraints. " +
-      "Keep your tone extremely professional, sharp, luxurious, and supportive. " +
-      "Always connect the current message with the full past chat history provided to ensure context consistency. Reply in Arabic.";
+      "You are Grace OS VIP Elite Prompt Engineer. Your core function is to extract details from the user to build the perfect prompt. " +
+      "STRICT SEQUENTIAL RULES: " +
+      "1. NEVER ask multiple questions at once. " +
+      "2. You must ask exactly ONE highly intelligent, short question per turn. " +
+      "3. Every new question MUST be directly built upon the user's previous answer found in the chat history. " +
+      "4. Analyze their response to judge their background knowledge and depth in the field, then adjust your next question accordingly. " +
+      "5. Do this for a maximum of 2 to 3 turns of questions. Once you have enough context, deliver the final masterpiece prompt. " +
+      "Keep the tone sharp, elite, luxurious, and supportive. Always connect context and reply in Arabic.";
 
     // 4. الـ Loop الذكي لتجربة المفاتيح ومخاطبة جوجل مباشرة بـ Gemini 2.5
     while (fallbackCounter < 5) {
@@ -75,13 +78,14 @@ export async function POST(req: Request) {
       }
 
       try {
+        // الربط الحتمي والمظبوط لـ Gemini 2.5 Flash عبر v1alpha القياسي
         const geminiUrl = `https://generativelanguage.googleapis.com/v1alpha/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
         
-        // ربط الـ History القديم بالدور الحالي لضمان الربط الكامل والشات يكمل بعضه
+        // ربط الـ History القديم بالدور الحالي لضمان الربط المتسلسل والشات يكمل بعضه
         const contents = [...formattedHistory];
         const currentTurnParts: any[] = [];
 
-        // معالجة الصور إن وجدت (ترتيب إلزامي للموديل)
+        // ترتيب الأجزاء: الصورة أولاً ثم النص (ترتيب إلزامي لـ Gemini API للـ Multi-modal)
         if (image && image.startsWith("data:image")) {
           const mimeType = image.split(";")[0].split(":")[1];
           const base64Data = image.split(",")[1];
@@ -91,7 +95,7 @@ export async function POST(req: Request) {
           });
         }
 
-        // إضافة الرسالة الحالية للمستخدم
+        // إضافة نص الرسالة الحالية للمستخدم
         currentTurnParts.push({ text: message || "حلل هذا المرفق الفاخر" });
 
         // دفع دور المستخدم الحالي في ذيل مصفوفة السياق المتكامل
@@ -117,7 +121,7 @@ export async function POST(req: Request) {
         if (geminiData.candidates && geminiData.candidates[0]?.content?.parts[0]?.text) {
           replyText = geminiData.candidates[0].content.parts[0].text;
           successfulKeyIndex = currentIndex;
-          break; // نجح الاستدعاء وتأمن السياق! اخرج فوراً
+          break; // نجح الاستدعاء وتأمن السياق التتابعي! اخرج فوراً من الـ Loop
         } else {
           lastError = geminiData.error?.message || JSON.stringify(geminiData);
         }
