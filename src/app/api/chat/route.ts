@@ -64,15 +64,18 @@ export async function POST(req: Request) {
     }
 
     // 1. جلب مصفوفة المفاتيح من جدول system_settings
-    const { data: settings, error: dbError } = await supabase
+    const { data: dbSettings, error: dbError } = await supabase
       .from("system_settings")
       .select("*")
       .eq("id", 1)
       .single();
 
-    if (dbError || !settings) {
+    if (dbError || !dbSettings) {
       return NextResponse.json({ error: "فشل جلب إعدادات النظام" }, { status: 500 });
     }
+
+    // 🌟 التعديل السحري: تحويل النوع إلى any لتخطي خطأ الـ Property does not exist on type never
+    const settings = dbSettings as any;
 
     const keysArray = [
       settings.key_1,
