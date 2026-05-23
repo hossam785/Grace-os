@@ -357,7 +357,7 @@ export default function ChatPage() {
       {/* منطقة الشات الرئيسية وعرض الرسائل المحدثة */}
       <div className="flex-1 flex flex-col h-full relative z-10 bg-radial-glow">
         
-        {/* الهيدر العلوي المخصص للموبايل والـ Layout الفخم - تم ضبط قفل التاغات البرمجية بالملي */}
+        {/* الهيدر العلوي المخصص للموبايل والـ Layout الفخم */}
         <header className="h-14 border-b border-purple-950/20 px-4 flex items-center justify-between lg:justify-end bg-[#0b0713]/40 backdrop-blur-md">
           <button 
             onClick={() => setIsSidebarOpen(true)}
@@ -387,28 +387,28 @@ export default function ChatPage() {
               </div>
             )}
 
-            {/* [إصلاح قلب النصوص الحاسم وتأمين الاتجاهات] */}
+            {/* 🔒 [إصلاح الاتجاهات النهائي والكامل]: ضبط الـ الـ Row والـ Alignment ليكون اليوزر يمين والبوت شمال بالملي */}
             {messages.map((msg) => (
               <div 
                 key={msg.id} 
                 className={`flex items-start gap-4 w-full ${
-                  msg.role === "user" ? "justify-start flex-row-reverse" : "justify-start flex-row"
+                  msg.role === "user" ? "justify-start flex-row" : "justify-start flex-row-reverse"
                 }`}
               >
                 
                 {/* الأواتار الفخم */}
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md border shrink-0 transition-transform duration-200 ${
                   msg.role === "user" 
-                    ? "bg-purple-600 border-purple-500 text-white" 
-                    : "bg-[#181126] border-purple-500/20 text-purple-400"
+                    ? "bg-purple-600 border-purple-500 text-white order-2" 
+                    : "bg-[#181126] border-purple-500/20 text-purple-400 order-1"
                 }`}>
                   {msg.role === "user" ? <User size={15} /> : <Sparkles size={14} className="text-purple-400" />}
                 </div>
 
                 <div className={`max-w-[85%] rounded-2xl p-4 text-sm shadow-xl relative group transition-all border text-right ${
                   msg.role === "user" 
-                    ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-purple-50 border-purple-500/20 rounded-tl-none shadow-purple-600/5" 
-                    : "bg-[#140e21] text-purple-100 border-purple-950/50 rounded-tr-none shadow-black/20"
+                    ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-purple-50 border-purple-500/20 rounded-tl-none shadow-purple-600/15 order-1 mr-auto" 
+                    : "bg-[#140e21] text-purple-100 border-purple-950/50 rounded-tr-none shadow-black/20 order-2 ml-auto"
                 }`}>
                   
                   {/* زرار نسخ البرومبت الفخم والذكي يظهر عند الهوفر أو اللمس السريع */}
@@ -433,11 +433,11 @@ export default function ChatPage() {
 
             {/* أنيميشن تفكير البوت المخصص والممتاز */}
             {botLoading && (
-              <div className="flex items-start gap-4 flex-row-reverse">
-                <div className="w-9 h-9 rounded-xl bg-[#181126] border border-purple-500/20 flex items-center justify-center text-purple-400 shadow-md">
+              <div className="flex items-start gap-4 flex-row">
+                <div className="w-9 h-9 rounded-xl bg-[#181126] border border-purple-500/20 flex items-center justify-center text-purple-400 shadow-md order-1">
                   <Sparkles size={14} className="animate-spin text-purple-400" style={{ animationDuration: '3s' }} />
                 </div>
-                <div className="bg-[#140e21] border border-purple-950/50 rounded-2xl rounded-tr-none p-4 shadow-xl flex items-center gap-2">
+                <div className="bg-[#140e21] border border-purple-950/50 rounded-2xl rounded-tr-none p-4 shadow-xl flex items-center gap-2 order-2 ml-auto">
                   <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                   <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
                   <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
@@ -484,7 +484,7 @@ export default function ChatPage() {
               className="hidden"
             />
             
-            {/* زر رفع الصور - تم تصحيح الـ `.current?.click` بنجاح لمنع كراش الـ build */}
+            {/* زر رفع الصور */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()} 
