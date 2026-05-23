@@ -182,10 +182,17 @@ export default function ChatPage() {
     setBotLoading(true);
 
     try {
+      // 🔒 [قفل تأمين الـ API الجديد]: جلب الـ Session Token وتمريره في الـ Headers لتخطي جدار الحماية بنجاح
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || "";
+
       // استدعاء الـ API الـ Route الذكي
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // تمرير التوكن لتأكيد الـ Authentication في السيرفر
+        },
         body: JSON.stringify({ 
           message: userText, 
           conversationId: currentConvId,
@@ -393,7 +400,7 @@ export default function ChatPage() {
             {messages.map((msg) => (
               <div key={msg.id} className={`flex items-start gap-4 ${msg.role === "user" ? "flex-row" : "flex-row-reverse"}`}>
                 
-                {/* الأواتار الفخم - للبوت واخد لوجو التطبيق الاحترافي كبراند مخصص وليس كـ AI رخيص */}
+                {/* الأواتار الفخم */}
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md border shrink-0 transition-transform duration-200 ${
                   msg.role === "user" 
                     ? "bg-purple-600 border-purple-500 text-white" 
