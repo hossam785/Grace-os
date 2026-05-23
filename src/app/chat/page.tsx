@@ -115,7 +115,7 @@ export default function ChatPage() {
     }
   };
 
-  // دالة تصفير وإلغاء الصورة المرفوعة
+  // dالة تصفير وإلغاء الصورة المرفوعة
   const clearAttachment = () => {
     setAttachedImage(null);
     setImagePreview(null);
@@ -366,7 +366,7 @@ export default function ChatPage() {
             className="p-2 text-purple-400 hover:text-purple-300 bg-purple-500/5 border border-purple-500/10 rounded-xl lg:hidden transition-colors"
           >
             <Menu size={18} />
-          </button>
+          </header>
           <div className="flex items-center gap-2 text-left lg:hidden">
             <Sparkles size={14} className="text-purple-400" />
             <span className="text-xs font-bold text-purple-200">Grace OS</span>
@@ -488,7 +488,7 @@ export default function ChatPage() {
             {/* زر رفع الصور بتتصميم سوبر لوكس منسق */}
             <button
               type="button"
-              onClick={() => fileInputRef.click()}
+              onClick={() => fileInputRef.current?.click()} // 🔒 التعديل الفولاذي الحاسم هنا: إضافة .current?. لمنع الـ build crash
               className="p-3 bg-[#140e21] border border-purple-950 text-purple-400 hover:text-purple-300 hover:bg-[#1a122b] rounded-xl flex items-center justify-center transition-all duration-150 shadow-md shrink-0 active:scale-[0.97]"
               title="إرفاق صورة للتحليل"
               disabled={botLoading}
