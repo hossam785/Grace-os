@@ -115,7 +115,7 @@ export default function ChatPage() {
     }
   };
 
-  // dالة تصفير وإلغاء الصورة المرفوعة
+  // دالة تصفير وإلغاء الصورة المرفوعة
   const clearAttachment = () => {
     setAttachedImage(null);
     setImagePreview(null);
@@ -171,8 +171,7 @@ export default function ChatPage() {
       }
     }
 
-    // 🔒 [تعديل منع التكرار الحاسم]: تم إزالة جملة الـ insert اليدوية لرسالة المستخدم من هنا لمنع تكرار الإدخال
-    // عرض رسالة اليوزر في الشاشة لايف بـ ID فريد بالوقت الحالي لمنع ارتباك الـ State
+    // 🔒 [تعديل منع التكرار الحاسم]: تم إزالة جملة الـ insert اليدوية لرسالة المستخدم لمنع تكرار الإدخال
     const uniqueUserId = `user-${Date.now()}`;
     setMessages(prev => [...prev, { id: uniqueUserId, role: "user", text: userText }]);
     setBotLoading(true);
@@ -200,7 +199,6 @@ export default function ChatPage() {
       const botReply = data.reply || data.error || "لم أستطع الحصول على رد من السيرفر.";
 
       // 🔒 [تعديل منع التكرار الحاسم]: تم إزالة جملة الـ insert اليدوية لرد البوت من هنا لأن السيرفر حفظها بالفعل
-      // عرض رد الـ Model في الشاشة بـ ID فريد مبني على الوقت الحالي
       setMessages(prev => [...prev, {
         id: `model-${Date.now()}`,
         role: "model",
@@ -359,14 +357,15 @@ export default function ChatPage() {
       {/* منطقة الشات الرئيسية وعرض الرسائل المحدثة */}
       <div className="flex-1 flex flex-col h-full relative z-10 bg-radial-glow">
         
-        {/* الهيدر العلوي المخصص للموبايل والـ Layout الفخم */}
+        {/* الهيدر العلوي المخصص للموبايل والـ Layout الفخم - تم ضبط قفل التاغات البرمجية بالملي */}
         <header className="h-14 border-b border-purple-950/20 px-4 flex items-center justify-between lg:justify-end bg-[#0b0713]/40 backdrop-blur-md">
           <button 
             onClick={() => setIsSidebarOpen(true)}
             className="p-2 text-purple-400 hover:text-purple-300 bg-purple-500/5 border border-purple-500/10 rounded-xl lg:hidden transition-colors"
           >
             <Menu size={18} />
-          </header>
+          </button>
+          
           <div className="flex items-center gap-2 text-left lg:hidden">
             <Sparkles size={14} className="text-purple-400" />
             <span className="text-xs font-bold text-purple-200">Grace OS</span>
@@ -388,7 +387,7 @@ export default function ChatPage() {
               </div>
             )}
 
-            {/* 🔒 [تعديل الـ Layout وإصلاح قلب النصوص الحاسم]: معالجة الـ flex والـ الـ Alignment للموقع والموبايل بالتساوي */}
+            {/* [إصلاح قلب النصوص الحاسم وتأمين الاتجاهات] */}
             {messages.map((msg) => (
               <div 
                 key={msg.id} 
@@ -421,7 +420,7 @@ export default function ChatPage() {
                     {copiedId === msg.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
                   </button>
 
-                  {/* 🔒 تأكيد اتجاه السرد الصارم RTL ومنع المتصفحات من قلب الكلمات المختلطة أو علامات الماركدوان */}
+                  {/* تأكيد اتجاه السرد الصارم RTL ومنع المتصفحات من قلب الكلمات */}
                   <p 
                     className="leading-relaxed whitespace-pre-line text-[13.5px] tracking-wide font-normal pl-6"
                     style={{ direction: "rtl", textJustify: "inter-word" }}
@@ -432,7 +431,7 @@ export default function ChatPage() {
               </div>
             ))}
 
-            {/* أنيميشن تفكير البوت المخصص والممتاز (Three dots bouncing) */}
+            {/* أنيميشن تفكير البوت المخصص والممتاز */}
             {botLoading && (
               <div className="flex items-start gap-4 flex-row-reverse">
                 <div className="w-9 h-9 rounded-xl bg-[#181126] border border-purple-500/20 flex items-center justify-center text-purple-400 shadow-md">
@@ -485,10 +484,10 @@ export default function ChatPage() {
               className="hidden"
             />
             
-            {/* زر رفع الصور بتتصميم سوبر لوكس منسق */}
+            {/* زر رفع الصور - تم تصحيح الـ `.current?.click` بنجاح لمنع كراش الـ build */}
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()} // 🔒 التعديل الفولاذي الحاسم هنا: إضافة .current?. لمنع الـ build crash
+              onClick={() => fileInputRef.current?.click()} 
               className="p-3 bg-[#140e21] border border-purple-950 text-purple-400 hover:text-purple-300 hover:bg-[#1a122b] rounded-xl flex items-center justify-center transition-all duration-150 shadow-md shrink-0 active:scale-[0.97]"
               title="إرفاق صورة للتحليل"
               disabled={botLoading}
@@ -496,7 +495,7 @@ export default function ChatPage() {
               <ImageIcon size={18} />
             </button>
 
-            {/* pقل الإدخال الراقس النصي */}
+            {/* حقل الإدخال الراقس النصي */}
             <input 
               type="text" 
               value={inputMessage} 
