@@ -140,7 +140,7 @@ export default function ChatPage() {
     }
   };
 
-  // 4. 🔥 دالة إرسال الرسالة الحقيقية مع ميزة الحفظ التلقائي الفوري (Auto-Save) للمحادثة والرسائل لايف
+  // 4. 🔥 دالة إرسال الرسالة الحقيقية المنظفة تماماً من كراش تكرار الحفظ والـ IDs العشوائية
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!inputMessage.trim() && !attachedImage) || botLoading) return;
@@ -152,7 +152,7 @@ export default function ChatPage() {
     setInputMessage(""); 
     clearAttachment();
 
-    // ✨ [AUTO-SAVE STEP 1]: لو مفيش شات مفتوح أو المستخدم دخل وكتب عل طول، بنكاريت الغرفة فوراً وبنسيفها في قاعدة البيانات
+    // ✨ [AUTO-SAVE STEP 1]: إنشاء الغرفة فوراً وحفظها إذا لم تكن موجودة
     if (!currentConvId) {
       const titleText = userText ? (userText.slice(0, 20) + "...") : "تحليل صورة...📸";
       const supabaseAutoConvBypass: any = supabase.from("conversations");
@@ -171,14 +171,10 @@ export default function ChatPage() {
       }
     }
 
-    // ✨ [AUTO-SAVE STEP 2]: حفظ رسالة المستخدم الحالية في جدول الـ messages في الـ Supabase فوراً قبل إرسالها لـ Gemini
-    const supabaseUserMsgBypass: any = supabase.from("messages");
-    await supabaseUserMsgBypass.insert([
-      { conversation_id: currentConvId, role: "user", text: userText }
-    ]);
-
-    // عرض رسالة اليوزر في الشاشة لايف
-    setMessages(prev => [...prev, { id: Math.random().toString(), role: "user", text: userText }]);
+    // 🔒 [تعديل منع التكرار الحاسم]: تم إزالة جملة الـ insert اليدوية لرسالة المستخدم من هنا لمنع تكرار الإدخال
+    // عرض رسالة اليوزر في الشاشة لايف بـ ID فريد بالوقت الحالي لمنع ارتباك الـ State
+    const uniqueUserId = `user-${Date.now()}`;
+    setMessages(prev => [...prev, { id: uniqueUserId, role: "user", text: userText }]);
     setBotLoading(true);
 
     try {
@@ -186,12 +182,12 @@ export default function ChatPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || "";
 
-      // استدعاء الـ API الـ Route الذكي
+      // استدعاء الـ API الـ Route الذكي (هو المسؤول عن حفظ رسالة اليوزر ورد البوت مرة واحدة فقط داخل السيرفر)
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // تمرير التوكن لتأكيد الـ Authentication في السيرفر
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({ 
           message: userText, 
@@ -203,28 +199,23 @@ export default function ChatPage() {
       const data = await response.json();
       const botReply = data.reply || data.error || "لم أستطع الحصول على رد من السيرفر.";
 
-      // ✨ [AUTO-SAVE STEP 3]: حفظ رد البوت أوتوماتيكياً فور وصوله لضمان عدم ضياعه لو المستخدم خرج
-      const supabaseBotMsgBypass: any = supabase.from("messages");
-      await supabaseBotMsgBypass.insert([
-        { conversation_id: currentConvId, role: "model", text: botReply }
-      ]);
-
-      // عرض رد الـ Model في الشاشة
+      // 🔒 [تعديل منع التكرار الحاسم]: تم إزالة جملة الـ insert اليدوية لرد البوت من هنا لأن السيرفر حفظها بالفعل
+      // عرض رد الـ Model في الشاشة بـ ID فريد مبني على الوقت الحالي
       setMessages(prev => [...prev, {
-        id: Math.random().toString(),
+        id: `model-${Date.now()}`,
         role: "model",
         text: botReply,
       }]);
 
-      // تحديث عنوان المحادثة في الجانب لو كانت "محادثة جديدة" لتأخذ سياق كلام اليوزر
+      // تحديث عنوان المحادثة في الجانب لو كانت "محادثة جديدة" دون تدمير الـ messages state
       setConversations(prev => prev.map(c => 
-        c.id === currentConvId && c.title.includes("محادثة جديدة") 
+        c.id === currentConvId && (c.title === "محادثة جديدة 📑" || c.title.includes("محادثة جديدة"))
           ? { ...c, title: userText ? (userText.slice(0, 18) + "...") : "تحليل صورة...📸" } 
           : c
       ));
 
     } catch (err) {
-      setMessages(prev => [...prev, { id: Math.random().toString(), role: "model", text: "❌ حدث خطأ في الاتصال بالسيرفر الداخلي." }]);
+      setMessages(prev => [...prev, { id: `error-${Date.now()}`, role: "model", text: "❌ حدث خطأ في الاتصال بالسيرفر الداخلي." }]);
     } finally {
       setBotLoading(false);
     }
@@ -397,8 +388,14 @@ export default function ChatPage() {
               </div>
             )}
 
+            {/* 🔒 [تعديل الـ Layout وإصلاح قلب النصوص الحاسم]: معالجة الـ flex والـ الـ Alignment للموقع والموبايل بالتساوي */}
             {messages.map((msg) => (
-              <div key={msg.id} className={`flex items-start gap-4 ${msg.role === "user" ? "flex-row" : "flex-row-reverse"}`}>
+              <div 
+                key={msg.id} 
+                className={`flex items-start gap-4 w-full ${
+                  msg.role === "user" ? "justify-start flex-row-reverse" : "justify-start flex-row"
+                }`}
+              >
                 
                 {/* الأواتار الفخم */}
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md border shrink-0 transition-transform duration-200 ${
@@ -409,10 +406,10 @@ export default function ChatPage() {
                   {msg.role === "user" ? <User size={15} /> : <Sparkles size={14} className="text-purple-400" />}
                 </div>
 
-                <div className={`max-w-[85%] rounded-2xl p-4 text-sm shadow-xl relative group transition-all border ${
+                <div className={`max-w-[85%] rounded-2xl p-4 text-sm shadow-xl relative group transition-all border text-right ${
                   msg.role === "user" 
-                    ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-purple-50 border-purple-500/20 rounded-tl-none text-right shadow-purple-600/5" 
-                    : "bg-[#140e21] text-purple-100 border-purple-950/50 rounded-tr-none text-right shadow-black/20"
+                    ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-purple-50 border-purple-500/20 rounded-tl-none shadow-purple-600/5" 
+                    : "bg-[#140e21] text-purple-100 border-purple-950/50 rounded-tr-none shadow-black/20"
                 }`}>
                   
                   {/* زرار نسخ البرومبت الفخم والذكي يظهر عند الهوفر أو اللمس السريع */}
@@ -424,7 +421,13 @@ export default function ChatPage() {
                     {copiedId === msg.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
                   </button>
 
-                  <p className="leading-relaxed whitespace-pre-line text-[13.5px] tracking-wide font-normal pl-6">{msg.text}</p>
+                  {/* 🔒 تأكيد اتجاه السرد الصارم RTL ومنع المتصفحات من قلب الكلمات المختلطة أو علامات الماركدوان */}
+                  <p 
+                    className="leading-relaxed whitespace-pre-line text-[13.5px] tracking-wide font-normal pl-6"
+                    style={{ direction: "rtl", textJustify: "inter-word" }}
+                  >
+                    {msg.text}
+                  </p>
                 </div>
               </div>
             ))}
@@ -485,7 +488,7 @@ export default function ChatPage() {
             {/* زر رفع الصور بتتصميم سوبر لوكس منسق */}
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => fileInputRef.click()}
               className="p-3 bg-[#140e21] border border-purple-950 text-purple-400 hover:text-purple-300 hover:bg-[#1a122b] rounded-xl flex items-center justify-center transition-all duration-150 shadow-md shrink-0 active:scale-[0.97]"
               title="إرفاق صورة للتحليل"
               disabled={botLoading}
@@ -493,7 +496,7 @@ export default function ChatPage() {
               <ImageIcon size={18} />
             </button>
 
-            {/* حقل الإدخال الراقس النصي */}
+            {/* pقل الإدخال الراقس النصي */}
             <input 
               type="text" 
               value={inputMessage} 
