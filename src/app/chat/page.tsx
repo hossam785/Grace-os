@@ -387,16 +387,14 @@ export default function ChatPage() {
               </div>
             )}
 
-            {/* 🔒 [قفل هندسة المحاذاة النهائي]: محاذاة مرئية مطلقة تعتمد على اتجاه الـ DOM والـ direction بدون تداخل */}
+            {/* 🔒 [التعديل الهندسي المطلق والخالي من العك والـ Hacks الجانبية]: */}
             {messages.map((msg) => (
               <div 
                 key={msg.id} 
-                className="w-full flex"
-                style={{ justifyContent: msg.role === "user" ? "flex-start" : "flex-end" }}
+                className={`w-full flex ${msg.role === "user" ? "justify-start" : "justify-end"}`}
               >
                 <div 
-                  className="flex items-start gap-4 max-w-[85%]"
-                  style={{ flexDirection: msg.role === "user" ? "row-reverse" : "row" }}
+                  className={`flex items-start gap-4 max-w-[85%] ${msg.role === "user" ? "flex-row" : "flex-row-reverse"}`}
                 >
                   {/* الأواتار الفخم */}
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md border shrink-0 transition-transform duration-200 ${
@@ -407,7 +405,7 @@ export default function ChatPage() {
                     {msg.role === "user" ? <User size={15} /> : <Sparkles size={14} className="text-purple-400" />}
                   </div>
 
-                  {/* صندوق النص الفخم */}
+                  {/* صندوق النص الفخم والمصحح للـ RTL بدون عك كلاسات الـ Order */}
                   <div className={`rounded-2xl p-4 text-sm shadow-xl relative group transition-all border text-right ${
                     msg.role === "user" 
                       ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-purple-50 border-purple-500/20 rounded-tr-none shadow-purple-600/15" 
@@ -435,10 +433,10 @@ export default function ChatPage() {
               </div>
             ))}
 
-            {/* أنيميشن تفكير البوت المخصص والممتاز */}
+            {/* أنيميشن تفكير البوت المخصص والممتاز مضبوط على اليسار مثل رسائل البوت بالملي */}
             {botLoading && (
               <div className="w-full flex justify-end">
-                <div className="flex items-start gap-4 max-w-[85%] flex-row">
+                <div className="flex items-start gap-4 max-w-[85%] flex-row-reverse">
                   <div className="w-9 h-9 rounded-xl bg-[#181126] border border-purple-500/20 flex items-center justify-center text-purple-400 shadow-md">
                     <Sparkles size={14} className="animate-spin text-purple-400" style={{ animationDuration: '3s' }} />
                   </div>
