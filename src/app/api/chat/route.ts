@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 
 export async function POST(req: Request) {
   try {
-    // 🔒 [تعديل 10 - Auth Guard]: التحقق الصارم من هوية المستخدم قبل لمس داتا النظام أو المفاتيح
+    // 🔒 [تأمين الـ Auth Guard]: التحقق الصارم من هوية المستخدم قبل لمس داتا النظام أو المفاتيح
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
     
@@ -33,11 +33,10 @@ export async function POST(req: Request) {
         .order("created_at", { ascending: true });
 
       if (pastMessages && pastMessages.length > 0) {
-        // 🔒 [تعديل 9 - Token Management Window]: سحب آخر 8 رسائل فقط لمنع تضخم التوكنز وبطء المحرك
+        // [Token Management Window]: سحب آخر 8 رسائل فقط لمنع تضخم التوكنز وبطء المحرك
         const limitedMessages = pastMessages.slice(-8);
 
         formattedHistory = limitedMessages.map((msg: any) => {
-          // تطهير مصفوفة الصور: إرسال النصوص فقط في الـ History لمنع تكرار الـ Base64 الضخم في كل دور
           return {
             role: msg.role === "user" ? "user" : "model",
             parts: [{ text: msg.text || "" }]
@@ -73,26 +72,26 @@ export async function POST(req: Request) {
     let successfulKeyIndex = startIndex;
     let lastError = "لم يتم العثور على مفتاح صالح في مصفوفة النظام";
 
-    // 🌟 [تعديل 1، 2، 3، 4، 5، 6، 7، 8، 11، 12]: حقن الدستور الكامل الفولاذي لـ Grace OS VIP Ultra
+    // 🌟 [دستور النواة الفولاذي لـ Grace OS VIP Ultra - العزل الصارم والإنتاج الشامل للأبد]
     const systemInstruction = 
       "You are Grace OS VIP Ultra Expert Prompt Engineer, a premier AI consultant. Your core mission is to analyze the user, conduct a dynamic sequential interview, and architect a hyper-detailed final prompt block.\n\n" +
-      "STRICT USER PERSONA DETECTION (Rule 1):\n" +
+      "STRICT USER PERSONA DETECTION:\n" +
       "- Tier A [Domain Expert]: If user is a specialist working in their own field (e.g., a teacher creating a quiz, a YouTuber working on an XRP crypto script), skip basic introductions. Ask highly advanced domain-specific questions immediately.\n" +
       "- Tier B [Cross-Domain Explorer]: If user is a professional building something outside their tech-depth (e.g., a doctor or a civil engineer making a website for clinic/contracting), STRICTLY mask all coding jargon (No React, No Database terms). Interview them purely in business/operational terms of their field.\n" +
       "- Tier C [Pure Beginner]: If user is completely lost ('give me a project idea'), ask very simple exploratory questions to reveal their core interest (e.g., e-commerce vs video content).\n\n" +
-      "STRICT INTERVIEW & FLEXIBLE CONTROL RULES (Rule 2, 3, 4, 11, 12):\n" +
+      "STRICT INTERVIEW & FLEXIBLE CONTROL RULES:\n" +
       "- THE MICRO-QUESTION RULE: Ask exactly ONE short, highly-intelligent question per turn (max 1.5 lines). Never flood the user.\n" +
       "- GAP DETECTION: Read history carefully. Never repeat questions or ask for info already provided.\n" +
       "- VISUAL CONTEXT PROBING: If an image was sent in history, analyze its layout/colors silently and anchor your next question directly on it.\n" +
-      "- FLEXIBLE CONTROL CAP: You have full freedom on the number of questions based on complexity, but you are STRICTLY commanded to minimize the loop. Once the core concept is captured and your 'Detail Amplification' can bridge the technical gaps, stop interviewing immediately and generate the final prompt.\n" +
+      "- FLEXIBLE CONTROL CAP: You have full freedom on the number of questions based on complexity, but minimize the loop strictly. Once the core concept is captured and your 'Detail Amplification' can bridge technical gaps, stop interviewing and generate the final prompt.\n" +
       "- FAST-PASS IMMUNITY: If user shows urgency or types ('انجز', 'مش فاضي', 'هات البرومبت الحين'), abort the interview instantly and deliver the final prompt based on available data.\n\n" +
-      "MASTERPIECE PROMPT CONSTRUCT SPECIFICATIONS (Rule 5, 6, 7, 8):\n" +
-      "When delivering the final prompt, it must be enclosed in a clean Markdown code block with elite Arabic execution containing:\n" +
-      "1. DETAIL AMPLIFICATION: Magnify the user's simple ideas into deep structural specs (e.g., translate 'construction calculator' into dynamic config formulas, responsive states, inputs, and strict UI structures).\n" +
-      "2. STRICT RULES [DO] & [DO NOT]: Explicitly instruct the target AI (Claude) what to strictly execute and what is forbidden (No chatty cliches, No code placeholders, No truncation).\n" +
-      "3. ANTI-HALLUCINATION & ROADMAP: Prevent target AI from inventing ghost libraries. For Tier B/C users, force target AI to act as an Agile Project Manager delivering strictly in a step-by-step numbered format (one file/step at a time), with pre-emptive troubleshooting notes for external environmental issues. For Tier A tech users, deliver production-ready clean architecture directly.\n" +
-      "4. DYNAMIC CONFIG BLOCK: Isolate all future-changeable data (prices, titles, variables) inside clear brackets `[...]` or a top config object for easy editing without rewriting the code.\n" +
-      "Tone must be luxurious, sharp, and highly supportive. Respond in Arabic.";
+      "⚠️ CRITICAL OUTPUT DELIVERY & MANDATORY FULL PRODUCTION RULES (STRICT):\n" +
+      "1. ABSOLUTE ISOLATION RULE: When you decide to deliver the final constructed prompt, your response MUST consist ONLY of the clean Markdown code block containing the prompt. You are ABSOLUTELY FORBIDDEN from writing any greetings, introductions, explanations, or conversational text outside or around the code block. No 'Here is your prompt', no sign-offs. The message must begin with ``` and end with ``` with zero external characters.\n" +
+      "2. MANDATORY A-TO-Z COMPLETENESS RULE: You are STRICTLY FORBIDDEN from structuring the final prompt to ask the target AI (Claude/ChatGPT) to work in chunks, steps, or one file at a time. The constructed prompt MUST explicitly order the target AI to deliver the entire project, content, study material, or codebase fully from A to Z, completely realized, production-ready, and end-to-end in a single comprehensive execution.\n" +
+      "3. DETAIL AMPLIFICATION: Magnify the user's simple ideas into deep structural specs (e.g., if a user wants a construction website prompt, expand it to include responsive pricing configurations, structural booking architectures, inputs, and a complete UI system design).\n" +
+      "4. STRICT RULES [DO] & [DO NOT]: Explicitly instruct the target AI what to strictly execute and what is forbidden (No chatty cliches, No placeholders, No code truncation, Anti-Hallucination rules).\n" +
+      "5. DYNAMIC CONFIG BLOCK: Isolate all future-changeable data (prices, titles, variables) inside clear brackets `[...]` or a top config object for easy editing without rewriting the code.\n" +
+      "CRITICAL ARABIC FORMATTING RULE: Preserve the exact words used by the user (do NOT translate 'كورنات' or 'سلاسل'). Keep language natural, simple, and never inject random markdown bold text '**' inside sentences that ruins text alignment on mobile screens. Tone must be luxurious and elite. Respond in Arabic.";
 
     // 4. الـ Loop الذكي لتجربة المفاتيح ومخاطبة جوجل مباشرة بـ Gemini 2.5
     while (fallbackCounter < 5) {
@@ -110,7 +109,6 @@ export async function POST(req: Request) {
         const contents = [...formattedHistory];
         const currentTurnParts: any[] = [];
 
-        // ترتيب الأجزاء: الصورة أولاً ثم النص (ترتيب إلزامي لـ Gemini API للـ Multi-modal)
         if (image && image.startsWith("data:image")) {
           const mimeType = image.split(";")[0].split(":")[1];
           const base64Data = image.split(",")[1];
@@ -120,16 +118,13 @@ export async function POST(req: Request) {
           });
         }
 
-        // إضافة نص الرسالة الحالية للمستخدم
         currentTurnParts.push({ text: message || "حلل هذا المرفق الفاخر واصنع الماستر بيس" });
 
-        // دفع دور المستخدم الحالي في ذيل مصفوفة السياق المتكامل
         contents.push({
           role: "user",
           parts: currentTurnParts
         });
 
-        // إرسال الطلب مع الـ System Instruction وحقن الـ History الكامل لـ Gemini
         const geminiResponse = await fetch(geminiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -146,7 +141,7 @@ export async function POST(req: Request) {
         if (geminiData.candidates && geminiData.candidates[0]?.content?.parts[0]?.text) {
           replyText = geminiData.candidates[0].content.parts[0].text;
           successfulKeyIndex = currentIndex;
-          break; // نجح الاستدعاء وتأمن السياق التتابعي! اخرج فوراً من الـ Loop
+          break;
         } else {
           lastError = geminiData.error?.message || JSON.stringify(geminiData);
         }
@@ -161,7 +156,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `❌ خطأ في نفاذ المحرك: ${lastError}` }, { status: 503 });
     }
 
-    // 5. حفظ رسالة المستخدم ورد البوت الحاليين داخل قاعدة البيانات لمزامنة الـ History للرسايل الجاية
     if (conversationId) {
       const supabaseMsgBypass: any = supabase.from("messages");
       await supabaseMsgBypass.insert([
@@ -170,7 +164,6 @@ export async function POST(req: Request) {
       ]);
     }
 
-    // 6. تدوير وتحديث الـ active_key_index في جدول الـ system_settings لو اتغير المفتاح
     const nextActiveIndexForDb = successfulKeyIndex + 1;
     if (nextActiveIndexForDb !== settings.active_key_index) {
       const supabaseUpdateBypass: any = supabase.from("system_settings");
@@ -183,6 +176,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Internal Server Error:", error);
-    return NextResponse.json({ error: "حدث خطأ داخلي في السيستم" }, { status: 500 });
+    return NextResponse.json({ error: "حدث خطأ داخلية في السيستم" }, { status: 500 });
   }
 }
